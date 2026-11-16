@@ -24,6 +24,12 @@ jobs:
         with:
           node-version: 20
 
+      - name: Prepare Web Directory
+        run: |
+          mkdir -p www
+          cp index.html app.js data.js manifest.json sw.js www/
+          cp -r icons www/
+
       - name: Install Dependencies & Capacitor
         run: |
           npm install --save @capacitor/core @capacitor/cli @capacitor/android
