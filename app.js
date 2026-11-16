@@ -1430,8 +1430,34 @@ Ekstrak data berikut dan kembalikan HANYA format JSON valid tanpa markdown backt
     saveScannedReceiptTransaction,
     viewReceiptImage,
     closeReceiptViewer,
-    saveGeminiApiKey
+    saveGeminiApiKey,
+    triggerPWAInstall
   };
+
+  // PWA Install Prompt Handler
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.classList.remove('hidden');
+  });
+
+  function triggerPWAInstall() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          showToast('Aplikasi sedang dipasang ke HP Anda!');
+        }
+        deferredPrompt = null;
+        const banner = document.getElementById('pwa-install-banner');
+        if (banner) banner.classList.add('hidden');
+      });
+    } else {
+      alert('Untuk memasang di Android:\n1. Ketuk menu titik tiga (⋮) di Chrome.\n2. Pilih "Tambahkan ke Layar Utama" atau "Install Aplikasi".');
+    }
+  }
 
   // DOM Loaded init
   document.addEventListener('DOMContentLoaded', () => {

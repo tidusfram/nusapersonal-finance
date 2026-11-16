@@ -104,6 +104,20 @@
   <!-- Main Scrollable App View -->
   <main class="flex-1 max-w-md w-full mx-auto p-4 safe-bottom space-y-4">
 
+    <!-- 📲 Android PWA Install Banner (Muncul otomatis saat siap diinstal) -->
+    <div id="pwa-install-banner" class="hidden p-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 border border-emerald-400/40 text-white shadow-xl flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-xl shrink-0">📱</div>
+        <div>
+          <div class="font-extrabold text-xs">Pasang NusaFinance di HP</div>
+          <div class="text-[10px] text-emerald-100">Akses langsung dari layar utama & offline</div>
+        </div>
+      </div>
+      <button onclick="window.nusaApp.triggerPWAInstall()" class="px-3.5 py-1.5 bg-white text-emerald-900 font-black text-xs rounded-xl shadow-md active:scale-95 shrink-0">
+        Install
+      </button>
+    </div>
+
     <!-- ==================== TAB 1: DASHBOARD ==================== -->
     <section id="tab-section-dashboard" class="tab-content space-y-4">
       
