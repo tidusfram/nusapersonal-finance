@@ -1,4 +1,4 @@
-// NusaPersonal Finance — Application Logic & Store
+// NusaPersonal Finance — Application Logic & Store with OCR Receipt Scanner
 (function () {
   'use strict';
 
@@ -22,7 +22,7 @@
   let activeTab = 'dashboard';
   let activePeriod = '2026-11'; // YYYY-MM
   let categoryChartInstance = null;
-  let cashflowChartInstance = null;
+  let currentScannedImage = null;
 
   // Initialize DB from LocalStorage or INITIAL_DATA
   function loadDatabase() {
@@ -66,7 +66,7 @@
     if (!toast) {
       toast = document.createElement('div');
       toast.id = 'toast';
-      toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white border border-emerald-500/50 px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-sm font-medium backdrop-blur transition-all duration-300 pointer-events-none opacity-0';
+      toast.className = 'fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white border border-emerald-500/50 px-4 py-2.5 rounded-full shadow-2xl flex items-center gap-2 text-sm font-medium backdrop-blur transition-all duration-300 pointer-events-none opacity-0';
       document.body.appendChild(toast);
     }
     toast.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>${msg}`;
@@ -105,13 +105,11 @@
           outs[tx.accountId] += amt;
         }
       } else if (tx.type === 'Savings') {
-        // Tabungan masuk ke akun tabungan atau keluar dari akun sumber
         if (balances[tx.accountId] !== undefined) {
           balances[tx.accountId] += amt;
           ins[tx.accountId] += amt;
         }
       } else if (tx.type === 'Transfer') {
-        // Transfer Out jika nominal negatif atau bila transferId dipasangkan
         if (balances[tx.accountId] !== undefined) {
           balances[tx.accountId] -= amt;
           outs[tx.accountId] += amt;
@@ -175,14 +173,6 @@
     return db.investments.reduce((sum, item) => sum + (Number(item.currentValue) || 0), 0);
   }
 
-  function getTotalInvestmentCost() {
-    return db.investments.reduce((sum, item) => {
-      const units = Number(item.units) || 0;
-      const price = Number(item.purchasePricePerUnit) || 0;
-      return sum + (units * price);
-    }, 0);
-  }
-
   function getTotalDebts() {
     return db.debts.reduce((sum, item) => sum + (Number(item.remainingAmount) || 0), 0);
   }
@@ -220,7 +210,6 @@
     const selector = document.getElementById('period-selector');
     if (!selector) return;
 
-    // Collect available months from transactions or default
     const months = new Set(['2026-11', '2026-10', '2026-12']);
     db.transactions.forEach(tx => {
       if (tx.date && tx.date.length >= 7) {
@@ -241,7 +230,6 @@
     const summary = getPeriodSummary(activePeriod);
     const net = getNetWorth();
 
-    // Stats cards
     const elIncome = document.getElementById('dash-income');
     const elExpense = document.getElementById('dash-expense');
     const elCashflow = document.getElementById('dash-cashflow');
@@ -420,9 +408,14 @@
             <div class="flex items-center gap-1.5 flex-wrap">
               <span class="text-[10px] px-1.5 py-0.2 rounded border ${typeBadge}">${tx.type}</span>
               <span class="text-xs font-semibold text-slate-300 truncate">${tx.category}</span>
+              ${tx.receiptImage ? `
+                <button onclick="window.nusaApp.viewReceiptImage('${tx.id}')" class="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 flex items-center gap-0.5">
+                  🧾 Nota
+                </button>
+              ` : ''}
             </div>
             <div class="text-sm font-medium text-slate-100 truncate mt-0.5">${tx.desc || tx.category}</div>
-            <div class="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+            <div class="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5 flex-wrap">
               <span>💳 ${accName}</span>
               ${tx.party ? `<span>• ${tx.party}</span>` : ''}
               ${tx.status !== 'Posted' ? `<span class="text-amber-400">(${tx.status})</span>` : ''}
@@ -465,7 +458,7 @@
         <div class="text-center py-10 px-4 bg-slate-800/40 rounded-2xl border border-dashed border-slate-700">
           <div class="text-3xl mb-2">💸</div>
           <div class="text-sm font-medium text-slate-300">Tidak ada transaksi ditemukan</div>
-          <div class="text-xs text-slate-400 mt-1">Coba sesuaikan filter atau tekan tombol + di bawah untuk mencatat transaksi baru.</div>
+          <div class="text-xs text-slate-400 mt-1">Coba sesuaikan filter atau tekan tombol 📷 Scan Nota / + Catat di bawah.</div>
         </div>
       `;
       return;
@@ -482,7 +475,6 @@
     const summary = getPeriodSummary(activePeriod);
     const expenseByCat = summary.expenseByCategory;
 
-    // Filter or list budgets for this period
     let budgetsForPeriod = db.budgets.filter(b => !b.period || b.period === activePeriod);
     if (budgetsForPeriod.length === 0) {
       budgetsForPeriod = db.budgets;
@@ -526,7 +518,6 @@
             </div>
           </div>
 
-          <!-- Progress Bar -->
           <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden p-0.5 border border-slate-700">
             <div class="${statusColor} h-1.5 rounded-full transition-all duration-500" style="width: ${Math.min(pct, 100)}%"></div>
           </div>
@@ -606,7 +597,6 @@
             </div>
           </div>
 
-          <!-- Progress -->
           <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-700">
             <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
           </div>
@@ -635,7 +625,6 @@
 
   // Assets & Debts Screen
   function renderAssetsAndDebts() {
-    // Debts
     const debtsContainer = document.getElementById('debts-list');
     if (debtsContainer) {
       if (db.debts.length === 0) {
@@ -663,7 +652,6 @@
                 </div>
               </div>
 
-              <!-- Progress Pelunasan -->
               <div class="space-y-1">
                 <div class="flex justify-between text-[11px] text-slate-400">
                   <span>Terbayar: ${formatRupiah(paid)} (${pct}%)</span>
@@ -684,7 +672,6 @@
       }
     }
 
-    // Physical Assets
     const assetsContainer = document.getElementById('assets-list');
     if (assetsContainer) {
       if (db.assets.length === 0) {
@@ -717,7 +704,6 @@
       }
     }
 
-    // Investments
     const invContainer = document.getElementById('investments-list');
     if (invContainer) {
       if (db.investments.length === 0) {
@@ -789,13 +775,19 @@
     if (elRepAssets) elRepAssets.textContent = formatRupiah(net.totalAssets);
     if (elRepInvTotal) elRepInvTotal.textContent = formatRupiah(net.totalInvestments);
     if (elRepDebtsTotal) elRepDebtsTotal.textContent = formatRupiah(net.totalDebts);
+
+    // Populate API key input if stored
+    const apiKeyInput = document.getElementById('gemini-api-key-input');
+    if (apiKeyInput) {
+      apiKeyInput.value = localStorage.getItem('nusafinance_gemini_key') || '';
+    }
   }
 
   // Workflows & Glossary
   function renderWorkflowsAndGlossary() {
     const wfContainer = document.getElementById('workflow-list');
     if (wfContainer) {
-      wfContainer.innerHTML = db.workflows.map((wf, idx) => `
+      wfContainer.innerHTML = db.workflows.map((wf) => `
         <div class="p-3.5 bg-slate-800/80 rounded-xl border border-slate-700/60 space-y-1">
           <div class="flex items-center justify-between">
             <span class="text-xs font-bold text-emerald-400">${wf.step}</span>
@@ -827,7 +819,6 @@
     const target = document.getElementById(`tab-section-${tabName}`);
     if (target) target.classList.remove('hidden');
 
-    // Update bottom navigation icons
     document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
       const active = btn.dataset.tab === tabName;
       if (active) {
@@ -847,7 +838,6 @@
     const modal = document.getElementById('modal-transaction');
     if (!modal) return;
 
-    // Populate dropdowns
     const typeSelect = document.getElementById('modal-tx-type');
     typeSelect.value = presetType;
 
@@ -856,7 +846,6 @@
     const accSelect = document.getElementById('modal-tx-account');
     accSelect.innerHTML = db.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
 
-    // Default date to today
     document.getElementById('modal-tx-date').value = new Date().toISOString().substring(0, 10);
     document.getElementById('modal-tx-desc').value = '';
     document.getElementById('modal-tx-amount').value = '';
@@ -949,6 +938,421 @@
     showToast(`Dana target bertambah ${formatRupiah(addAmt)}!`);
   }
 
+  // ========================================================
+  // 📷 RECEIPT SCANNER & OCR LOGIC
+  // ========================================================
+
+  function openReceiptScanner() {
+    const modal = document.getElementById('modal-receipt-scanner');
+    if (!modal) return;
+
+    // reset views
+    document.getElementById('receipt-scan-initial').classList.remove('hidden');
+    document.getElementById('receipt-scan-processing').classList.add('hidden');
+    document.getElementById('receipt-scan-result').classList.add('hidden');
+    document.getElementById('receipt-file-input').value = '';
+    currentScannedImage = null;
+
+    // Populate accounts dropdown in scan result
+    const accSelect = document.getElementById('scan-res-account');
+    if (accSelect) {
+      accSelect.innerHTML = db.accounts.map(a => `<option value="${a.id}">${a.name} (${a.type})</option>`).join('');
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeReceiptScanner() {
+    const modal = document.getElementById('modal-receipt-scanner');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function resizeImage(dataUrl, maxDim = 1200) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
+  async function processReceiptFile(file) {
+    if (!file) return;
+
+    const initialEl = document.getElementById('receipt-scan-initial');
+    const procEl = document.getElementById('receipt-scan-processing');
+    const resEl = document.getElementById('receipt-scan-result');
+    const statusEl = document.getElementById('scan-status-text');
+    const progressEl = document.getElementById('scan-progress-bar');
+    const previewImg = document.getElementById('scan-preview-img');
+
+    initialEl.classList.add('hidden');
+    procEl.classList.remove('hidden');
+    resEl.classList.add('hidden');
+    statusEl.textContent = 'Memuat dan mengoptimalkan gambar struk...';
+    progressEl.style.width = '20%';
+
+    try {
+      const base64 = await readFileAsDataURL(file);
+      const optimizedDataUrl = await resizeImage(base64, 1200);
+      currentScannedImage = optimizedDataUrl;
+      previewImg.src = optimizedDataUrl;
+
+      statusEl.textContent = 'Membaca teks nota otomatis...';
+      progressEl.style.width = '45%';
+
+      let extractedText = '';
+      let parsedData = null;
+
+      // 1. Check if Gemini AI key is configured in user settings
+      const geminiKey = localStorage.getItem('nusafinance_gemini_key');
+      if (geminiKey) {
+        try {
+          statusEl.textContent = 'Menganalisis struk dengan Google Gemini AI Vision...';
+          progressEl.style.width = '70%';
+          parsedData = await analyzeReceiptWithGemini(optimizedDataUrl, geminiKey);
+        } catch (err) {
+          console.warn('Gemini vision failed, fallback to local OCR:', err);
+        }
+      }
+
+      // 2. If Gemini not configured or failed, use local OCR (Tesseract.js)
+      if (!parsedData) {
+        statusEl.textContent = 'Mengekstrak teks struk dengan OCR...';
+        progressEl.style.width = '65%';
+        if (typeof Tesseract !== 'undefined') {
+          try {
+            const result = await Tesseract.recognize(optimizedDataUrl, 'eng+ind', {
+              logger: m => {
+                if (m.status === 'recognizing text') {
+                  progressEl.style.width = `${50 + Math.round(m.progress * 45)}%`;
+                }
+              }
+            });
+            extractedText = result.data.text || '';
+          } catch (e) {
+            console.warn('Tesseract recognition notice:', e);
+          }
+        }
+
+        parsedData = parseReceiptTextLocally(extractedText);
+      }
+
+      progressEl.style.width = '100%';
+      statusEl.textContent = 'Analisis nota berhasil!';
+
+      setTimeout(() => {
+        procEl.classList.add('hidden');
+        resEl.classList.remove('hidden');
+        populateScannedResultForm(parsedData);
+      }, 350);
+
+    } catch (err) {
+      alert('Gagal memproses gambar nota: ' + err.message);
+      initialEl.classList.remove('hidden');
+      procEl.classList.add('hidden');
+    }
+  }
+
+  function parseReceiptTextLocally(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    let merchant = '';
+    let detectedCategory = 'Makanan';
+
+    const knownMerchants = [
+      { name: 'Indomaret', cat: 'Rumah Tangga', regex: /indomaret/i },
+      { name: 'Alfamart', cat: 'Rumah Tangga', regex: /alfamart/i },
+      { name: 'Alfamidi', cat: 'Rumah Tangga', regex: /alfamidi/i },
+      { name: 'Super Indo', cat: 'Rumah Tangga', regex: /super\s*indo/i },
+      { name: 'Hypermart', cat: 'Rumah Tangga', regex: /hypermart/i },
+      { name: 'Transmart', cat: 'Rumah Tangga', regex: /transmart/i },
+      { name: 'SPBU Pertamina', cat: 'Transportasi', regex: /(spbu|pertamina|pertalite|pertamax)/i },
+      { name: 'Shell', cat: 'Transportasi', regex: /shell/i },
+      { name: 'BP AKR', cat: 'Transportasi', regex: /bp\s*akr/i },
+      { name: 'Grab', cat: 'Transportasi', regex: /grab/i },
+      { name: 'Gojek / GoFood', cat: 'Makanan', regex: /(gojek|gofood)/i },
+      { name: 'McDonald\'s', cat: 'Makanan', regex: /mcdonald/i },
+      { name: 'KFC', cat: 'Makanan', regex: /kfc/i },
+      { name: 'Starbucks', cat: 'Makanan', regex: /starbucks/i },
+      { name: 'Kopi Kenangan', cat: 'Makanan', regex: /kopi\s*kenangan/i },
+      { name: 'Janji Jiwa', cat: 'Makanan', regex: /janji\s*jiwa/i },
+      { name: 'Mie Gacoan', cat: 'Makanan', regex: /gacoan/i },
+      { name: 'Solaria', cat: 'Makanan', regex: /solaria/i },
+      { name: 'HokBen', cat: 'Makanan', regex: /hokben/i },
+      { name: 'Pizza Hut', cat: 'Makanan', regex: /pizza/i },
+      { name: 'Bakso', cat: 'Makanan', regex: /bakso/i },
+      { name: 'Warung', cat: 'Makanan', regex: /warung/i },
+      { name: 'Restoran', cat: 'Makanan', regex: /(resto|restoran|rumah\s*makan)/i },
+      { name: 'Apotek K-24', cat: 'Kesehatan', regex: /(k-24|k24)/i },
+      { name: 'Kimia Farma', cat: 'Kesehatan', regex: /kimia\s*farma/i },
+      { name: 'Century', cat: 'Kesehatan', regex: /century/i },
+      { name: 'Apotek', cat: 'Kesehatan', regex: /apotek/i },
+      { name: 'Gramedia', cat: 'Pendidikan', regex: /gramedia/i },
+      { name: 'Cinema XXI', cat: 'Hiburan', regex: /(xxi|cinema|cinepolis|cgv)/i },
+      { name: 'Uniqlo', cat: 'Belanja', regex: /uniqlo/i },
+      { name: 'Zara', cat: 'Belanja', regex: /zara/i },
+      { name: 'H&M', cat: 'Belanja', regex: /h&m/i },
+      { name: 'Shopee', cat: 'Belanja', regex: /shopee/i },
+      { name: 'Tokopedia', cat: 'Belanja', regex: /tokopedia/i },
+      { name: 'PLN', cat: 'Tagihan', regex: /pln/i },
+      { name: 'PDAM', cat: 'Tagihan', regex: /pdam/i },
+      { name: 'Indihome', cat: 'Tagihan', regex: /(indihome|telkom)/i }
+    ];
+
+    for (const m of knownMerchants) {
+      if (m.regex.test(text)) {
+        merchant = m.name;
+        detectedCategory = m.cat;
+        break;
+      }
+    }
+
+    if (!merchant && lines.length > 0) {
+      for (let i = 0; i < Math.min(5, lines.length); i++) {
+        const line = lines[i];
+        if (!/(struk|receipt|selamat|datang|jl|jalan|telp|phone|npwp|kasir|pos|no\.)/i.test(line) && line.length >= 3 && line.length <= 32) {
+          merchant = line;
+          break;
+        }
+      }
+    }
+    if (!merchant) merchant = 'Toko / Resto';
+
+    // Date
+    let detectedDate = new Date().toISOString().substring(0, 10);
+    const dateRegex = /\b(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})\b/;
+    const dateMatch = text.match(dateRegex);
+    if (dateMatch) {
+      let day = parseInt(dateMatch[1]);
+      let month = parseInt(dateMatch[2]);
+      let year = parseInt(dateMatch[3]);
+      if (year < 100) year += 2000;
+      if (month > 12 && day <= 12) {
+        const tmp = month;
+        month = day;
+        day = tmp;
+      }
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 2020 && year <= 2030) {
+        detectedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+
+    // Amount
+    let detectedAmount = 0;
+    const numbersFound = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const isTotalLine = /(total|grand\s*total|jumlah|subtotal|total\s*bayar|tunai|cash|debit|tagihan|nett)/i.test(line);
+
+      const matches = line.match(/(?:rp\.?|idr)?\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?|[0-9]{3,8})/gi);
+      if (matches) {
+        matches.forEach(m => {
+          let cleaned = m.replace(/[^0-9]/g, '');
+          let val = parseInt(cleaned, 10);
+          if (val >= 1000 && val <= 500000000 && !line.includes('TELP') && !line.includes('NPWP') && !line.includes('KODE')) {
+            numbersFound.push({ val, isTotalLine, line });
+          }
+        });
+      }
+    }
+
+    const totalLineNumbers = numbersFound.filter(n => n.isTotalLine);
+    if (totalLineNumbers.length > 0) {
+      detectedAmount = Math.max(...totalLineNumbers.map(n => n.val));
+    } else if (numbersFound.length > 0) {
+      detectedAmount = Math.max(...numbersFound.map(n => n.val));
+    }
+
+    return {
+      merchant,
+      date: detectedDate,
+      amount: detectedAmount || 45000,
+      category: detectedCategory,
+      desc: `Belanja di ${merchant}`,
+      notes: 'Dipindai otomatis dari struk'
+    };
+  }
+
+  async function analyzeReceiptWithGemini(base64DataUrl, apiKey) {
+    const base64Data = base64DataUrl.split(',')[1];
+    const mimeType = base64DataUrl.split(';')[0].split(':')[1] || 'image/jpeg';
+
+    const prompt = `Analisis foto struk / nota transaksi ini dalam bahasa Indonesia.
+Ekstrak data berikut dan kembalikan HANYA format JSON valid tanpa markdown backticks:
+{
+  "merchant": "Nama Toko / Restoran",
+  "date": "YYYY-MM-DD",
+  "amount": 150000,
+  "category": "Makanan / Rumah Tangga / Transportasi / Tagihan / Kesehatan / Pendidikan / Hiburan / Belanja / Lainnya",
+  "desc": "Ringkasan belanja atau menu",
+  "notes": "Catatan singkat"
+}`;
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mimeType, data: base64Data } }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API Error: ${response.status}`);
+    }
+
+    const json = await response.json();
+    const rawText = json.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+    const cleanJsonStr = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleanJsonStr);
+    return {
+      merchant: parsed.merchant || 'Toko',
+      date: parsed.date || new Date().toISOString().substring(0, 10),
+      amount: Number(parsed.amount) || 0,
+      category: parsed.category || 'Makanan',
+      desc: parsed.desc || `Belanja di ${parsed.merchant || 'Toko'}`,
+      notes: parsed.notes || 'Dipindai otomatis via Gemini AI'
+    };
+  }
+
+  function populateScannedResultForm(data) {
+    document.getElementById('scan-res-party').value = data.merchant || '';
+    document.getElementById('scan-res-amount').value = data.amount || '';
+    document.getElementById('scan-res-date').value = data.date || new Date().toISOString().substring(0, 10);
+    document.getElementById('scan-res-desc').value = data.desc || `Belanja di ${data.merchant}`;
+    document.getElementById('scan-res-notes').value = data.notes || 'Dipindai otomatis dari struk';
+
+    // Populate categories
+    const catSelect = document.getElementById('scan-res-category');
+    const expenseCats = db.categories.filter(c => c.type === 'Expense' && c.active);
+    catSelect.innerHTML = expenseCats.map(c => `
+      <option value="${c.name}" ${c.name === data.category ? 'selected' : ''}>${c.name}</option>
+    `).join('');
+
+    // Default account to Cash or Bank
+    const accSelect = document.getElementById('scan-res-account');
+    if (accSelect.options.length > 0) {
+      const preferred = db.accounts.find(a => a.type === 'Cash' || a.type === 'E-Wallet') || db.accounts[0];
+      if (preferred) accSelect.value = preferred.id;
+    }
+  }
+
+  function saveScannedReceiptTransaction() {
+    const party = document.getElementById('scan-res-party').value.trim();
+    const amount = Number(document.getElementById('scan-res-amount').value);
+    const date = document.getElementById('scan-res-date').value;
+    const category = document.getElementById('scan-res-category').value;
+    const accountId = document.getElementById('scan-res-account').value;
+    const desc = document.getElementById('scan-res-desc').value.trim();
+    const notes = document.getElementById('scan-res-notes').value.trim();
+
+    if (!amount || amount <= 0) {
+      alert('Mohon periksa nominal pengeluaran.');
+      return;
+    }
+
+    const newId = `TX-${String(Date.now()).slice(-5)}`;
+    const newTx = {
+      id: newId,
+      date: date || new Date().toISOString().substring(0, 10),
+      type: 'Expense',
+      desc: desc || `Belanja di ${party || category}`,
+      category: category || 'Makanan',
+      accountId: accountId || db.accounts[0].id,
+      amount,
+      party: party || 'Toko',
+      transferId: '',
+      status: 'Posted',
+      notes,
+      receiptImage: currentScannedImage // Attach compressed receipt image
+    };
+
+    db.transactions.unshift(newTx);
+    saveDatabase();
+    closeReceiptScanner();
+    renderAll();
+    showToast(`Nota ${party || category} senilai ${formatRupiah(amount)} berhasil dicatat otomatis!`);
+  }
+
+  function viewReceiptImage(txId) {
+    const tx = db.transactions.find(t => t.id === txId);
+    if (!tx || !tx.receiptImage) {
+      alert('Transaksi ini tidak memiliki lampiran foto nota.');
+      return;
+    }
+
+    const modal = document.getElementById('modal-view-receipt');
+    const imgEl = document.getElementById('view-receipt-img');
+    const infoEl = document.getElementById('view-receipt-info');
+
+    imgEl.src = tx.receiptImage;
+    infoEl.innerHTML = `
+      <div class="font-bold text-sm text-slate-100">${tx.party || tx.desc}</div>
+      <div class="text-xs text-emerald-400 font-semibold">${formatRupiah(tx.amount)} • ${tx.date}</div>
+    `;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeReceiptViewer() {
+    const modal = document.getElementById('modal-view-receipt');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+  }
+
+  function saveGeminiApiKey() {
+    const input = document.getElementById('gemini-api-key-input');
+    if (!input) return;
+    const val = input.value.trim();
+    if (val) {
+      localStorage.setItem('nusafinance_gemini_key', val);
+      showToast('Kunci Gemini API berhasil disimpan!');
+    } else {
+      localStorage.removeItem('nusafinance_gemini_key');
+      showToast('Kunci API dihapus. Menggunakan OCR bawaan.');
+    }
+  }
+
   // Export / Import
   function exportDataJSON() {
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(db, null, 2));
@@ -1019,14 +1423,20 @@
     resetToDefaultData,
     exportDataJSON,
     exportTransactionsCSV,
-    importDataJSON
+    importDataJSON,
+    openReceiptScanner,
+    closeReceiptScanner,
+    processReceiptFile,
+    saveScannedReceiptTransaction,
+    viewReceiptImage,
+    closeReceiptViewer,
+    saveGeminiApiKey
   };
 
   // DOM Loaded init
   document.addEventListener('DOMContentLoaded', () => {
     loadDatabase();
 
-    // Period selector change
     const pSel = document.getElementById('period-selector');
     if (pSel) {
       pSel.addEventListener('change', (e) => {
@@ -1035,23 +1445,30 @@
       });
     }
 
-    // Modal type change listener
     const modalType = document.getElementById('modal-tx-type');
     if (modalType) {
       modalType.addEventListener('change', updateCategoryDropdown);
     }
 
-    // Modal submit
     const txForm = document.getElementById('form-new-tx');
     if (txForm) {
       txForm.addEventListener('submit', saveTransactionFromModal);
     }
 
-    // Tx filters
     const filterType = document.getElementById('tx-filter-type');
     if (filterType) filterType.addEventListener('change', renderTransactions);
     const searchInput = document.getElementById('tx-search');
     if (searchInput) searchInput.addEventListener('input', renderTransactions);
+
+    // Receipt File input handler
+    const receiptInput = document.getElementById('receipt-file-input');
+    if (receiptInput) {
+      receiptInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          processReceiptFile(e.target.files[0]);
+        }
+      });
+    }
 
     // Initial render
     renderAll();

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nusafinance-v1';
+const CACHE_NAME = 'nusafinance-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,7 +7,8 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './icons/icon.svg',
   'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'
+  'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+  'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'
 ];
 
 self.addEventListener('install', (event) => {
