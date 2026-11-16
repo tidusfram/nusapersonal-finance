@@ -1473,11 +1473,19 @@ Ekstrak data berikut dan kembalikan HANYA format JSON valid tanpa markdown backt
     // Initial render
     renderAll();
 
-    // Register Service Worker for Android PWA
+    // Check URL shortcuts (e.g. ?action=scan or ?action=new-tx)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('action') === 'scan') {
+      setTimeout(() => openReceiptScanner(), 300);
+    } else if (urlParams.get('action') === 'new-tx') {
+      setTimeout(() => openNewTransactionModal('Expense'), 300);
+    }
+
+    // Register Service Worker for Android PWA (Store & Offline Ready)
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').then((reg) => {
-          console.log('[PWA] Service Worker registered:', reg.scope);
+        navigator.serviceWorker.register('sw.js', { scope: './' }).then((reg) => {
+          console.log('[PWA] Service Worker registered with scope:', reg.scope);
         }).catch((err) => {
           console.log('[PWA] Service Worker registration failed:', err);
         });

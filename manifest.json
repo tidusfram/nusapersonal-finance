@@ -1,45 +1,95 @@
 {
+  "id": "https://tidusfram.github.io/nusapersonal-finance/",
   "name": "NusaPersonal Finance",
   "short_name": "NusaFinance",
-  "description": "Aplikasi Manajemen Keuangan Pribadi & Kekayaan Bersih (Cashflow, Budget, Utang, Aset, Investasi)",
-  "start_url": "./index.html",
-  "scope": "./",
+  "description": "Aplikasi Manajemen Keuangan Pribadi, Net Worth, Anggaran Bulanan, Portofolio Investasi, dan Scan Nota Otomatis.",
+  "start_url": "https://tidusfram.github.io/nusapersonal-finance/",
+  "scope": "https://tidusfram.github.io/nusapersonal-finance/",
   "display": "standalone",
-  "display_override": ["standalone", "window-controls-overlay"],
-  "orientation": "portrait-primary",
+  "display_override": [
+    "standalone",
+    "window-controls-overlay",
+    "minimal-ui"
+  ],
+  "orientation": "portrait",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "lang": "id",
   "dir": "ltr",
-  "categories": ["finance", "business", "productivity"],
+  "categories": [
+    "finance",
+    "business",
+    "productivity"
+  ],
   "icons": [
     {
-      "src": "icons/icon.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/icon.svg",
-      "sizes": "192x192 512x512",
-      "type": "image/svg+xml",
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "icons/screenshot1.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Dasbor Keuangan & Kekayaan Bersih"
+    },
+    {
+      "src": "icons/screenshot2.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Database Transaksi & Scan Struk"
     }
   ],
   "shortcuts": [
     {
-      "name": "Tambah Transaksi",
-      "short_name": "Catat",
-      "description": "Catat pengeluaran atau pemasukan baru",
-      "url": "./index.html?action=new-tx",
-      "icons": [{ "src": "icons/icon.svg", "sizes": "192x192" }]
+      "name": "Scan Nota Otomatis",
+      "short_name": "Scan Nota",
+      "description": "Foto nota atau struk belanja untuk pencatatan instan",
+      "url": "https://tidusfram.github.io/nusapersonal-finance/?action=scan",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     },
     {
-      "name": "Cek Budget",
-      "short_name": "Budget",
-      "description": "Lihat sisa anggaran bulanan",
-      "url": "./index.html?tab=budget",
-      "icons": [{ "src": "icons/icon.svg", "sizes": "192x192" }]
+      "name": "Tambah Transaksi Manual",
+      "short_name": "Catat",
+      "description": "Catat pengeluaran atau pemasukan baru",
+      "url": "https://tidusfram.github.io/nusapersonal-finance/?action=new-tx",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
-  ]
+  ],
+  "prefer_related_applications": false
 }
