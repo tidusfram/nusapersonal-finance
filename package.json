@@ -1,0 +1,21 @@
+{
+  "name": "nusapersonal-finance-android",
+  "version": "1.0.0",
+  "description": "Aplikasi Manajemen Keuangan Pribadi Android (NusaPersonal Finance)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "cap:sync": "cap sync",
+    "cap:open": "cap open android"
+  },
+  "keywords": [
+    "personal-finance",
+    "android",
+    "pwa",
+    "apk",
+    "budget",
+    "cashflow"
+  ],
+  "author": "NusaPersonal",
+  "license": "MIT"
+}

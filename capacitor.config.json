@@ -1,0 +1,9 @@
+{
+  "appId": "com.nusapersonal.finance",
+  "appName": "NusaFinance",
+  "webDir": ".",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
