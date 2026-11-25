@@ -46,17 +46,48 @@ class FinanceViewModel(private val repository: FinanceRepository) : ViewModel() 
         observeData()
     }
 
+    private data class CoreData(
+        val period: String,
+        val accounts: List<AccountEntity>,
+        val transactions: List<TransactionEntity>,
+        val budgets: List<BudgetEntity>
+    )
+
+    private data class AdditionalData(
+        val goals: List<GoalEntity>,
+        val debts: List<DebtEntity>,
+        val assets: List<AssetEntity>,
+        val investments: List<InvestmentEntity>
+    )
+
     private fun observeData() {
-        combine(
+        val coreFlow = combine(
             _activePeriod,
             repository.allAccounts,
             repository.allTransactions,
-            repository.allBudgets(),
+            repository.getAllBudgets()
+        ) { period, accounts, transactions, budgets ->
+            CoreData(period, accounts, transactions, budgets)
+        }
+
+        val additionalFlow = combine(
             repository.allGoals,
             repository.allDebts,
             repository.allAssets,
             repository.allInvestments
-        ) { period, accounts, transactions, budgets, goals, debts, assets, investments ->
+        ) { goals, debts, assets, investments ->
+            AdditionalData(goals, debts, assets, investments)
+        }
+
+        combine(coreFlow, additionalFlow) { core, additional ->
+            val period = core.period
+            val accounts = core.accounts
+            val transactions = core.transactions
+            val budgets = core.budgets
+            val goals = additional.goals
+            val debts = additional.debts
+            val assets = additional.assets
+            val investments = additional.investments
 
             // 1. Calculate Account Balances
             val balances = accounts.associate { it.id to it.initialBalance }.toMutableMap()
